@@ -8,7 +8,6 @@ The NBA already offers a variety of data filters, but this executable would allo
 First, the server will tap a given NBA Statistics endpoint, retrieve the JSON response, and unmarshal it.
 Next, the retrieved data will be used to populate a SQL database made of two tables (Teams/Players).
 Players will be associated with their respective team's via their Team ID.
-This 
 
 METHODOLOGY
 
