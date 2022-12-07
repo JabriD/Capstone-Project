@@ -1,7 +1,6 @@
 package main
 
 type AllPlayers struct {
-	League struct {
 		Standard []struct {
 			FirstName            string `json:"firstName"`
 			LastName             string `json:"lastName"`
@@ -33,37 +32,32 @@ type AllPlayers struct {
 			Country         string `json:"country"`
 			IsallStar       bool   `json:"isallStar,omitempty"`
 		} `json:"standard"`
-	} `json:"league"`
 }
 
 
-type Standings struct {
-	League struct {
-		Standard struct {
-			SeasonYear    int `json:"seasonYear"`
-			SeasonStageID int `json:"seasonStageId"`
-			Conference    struct {
-				East []struct {
-					TeamID                 string `json:"teamId"`
-					TeamSitesOnly          struct {
-						TeamKey            string `json:"teamKey"`
-						TeamName           string `json:"teamName"`
-						TeamCode           string `json:"teamCode"`
-						TeamNickname       string `json:"teamNickname"`
-						TeamTricode        string `json:"teamTricode"`
-					} `json:"teamSitesOnly"`
-				} `json:"east"`
-				West []struct {
-					TeamID                 string `json:"teamId"`
-					TeamSitesOnly          struct {
-						TeamKey            string `json:"teamKey"`
-						TeamName           string `json:"teamName"`
-						TeamCode           string `json:"teamCode"`
-						TeamNickname       string `json:"teamNickname"`
-						TeamTricode        string `json:"teamTricode"`
-					} `json:"teamSitesOnly"`
-				} `json:"west"`
-			} `json:"conference"`
+type StandingsResponse struct {
+	Standings struct {
+		Teams struct {
 		} `json:"standard"`
 	} `json:"league"`
+}
+
+type Teams struct {
+	Conference    struct {
+	} `json:"conference"`
+}
+
+type Conference struct {
+	East []struct {
+		TeamID                 string `json:"teamId"`
+		TeamSitesOnly          struct {
+			TeamNickname       string `json:"teamNickname"`
+		} `json:"teamSitesOnly"`
+	} `json:"east"`
+	West []struct {
+		TeamID                 string `json:"teamId"`
+		TeamSitesOnly          struct {
+			TeamNickname       string `json:"teamNickname"`
+		} `json:"teamSitesOnly"`
+	} `json:"west"`
 }
