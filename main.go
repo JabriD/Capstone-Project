@@ -60,7 +60,7 @@ func getPlayerData() (AllPlayers, error) {
 }
 
 func createRoster() {
-	//os.Remove("roster.db")
+	os.Remove("roster.db")
 
 	db, err := sql.Open("sqlite3", "roster.db")
 	if err != nil {
