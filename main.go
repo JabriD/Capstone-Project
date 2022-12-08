@@ -69,7 +69,7 @@ func createRoster() {
 	defer db.Close()
 
 	sqlStmt := `
-	create table if not exists teams (teamid string primary key not null, teamname text);
+	create table if not exists teams (teamid string primary key not null, teamname text not null);
 	`
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
@@ -77,10 +77,37 @@ func createRoster() {
 		return
 	}
 
+	playerStmt := `
+	create table if not exists players (teamid string not null, playername string not null, playerid string not null, foreign key(teamid) references teams(teamid));
+	`
+	_, err = db.Exec(playerStmt)
+	if err != nil {
+		log.Printf("%q: %s\n", err, playerStmt)
+		return
+	}
+
 	for _, teams := range standResp.League.Standard.Conference.East{
 		stmt, _ := db.Prepare(`INSERT INTO teams(teamid, teamname) VALUES (?, ?)`)
 
 		_, err := stmt.Exec(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	for _, teams := range standResp.League.Standard.Conference.West{
+		stmt, _ := db.Prepare(`INSERT INTO teams(teamid, teamname) VALUES (?, ?)`)
+
+		_, err := stmt.Exec(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	for _, players := range playerResp.League.Standard{
+		stmt, _ := db.Prepare(`INSERT INTO players(teamid, playername, playerid) VALUES (?, ?, ?)`)
+
+		_, err := stmt.Exec(players.TeamID, players.TemporaryDisplayName, players.PersonID)
 		if err != nil {
 			log.Fatal(err)
 		}
