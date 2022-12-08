@@ -1,5 +1,28 @@
 package main
 
+type StandingsResponse struct {
+	League struct {
+		Standard struct {
+			SeasonYear    int `json:"seasonYear"`
+			SeasonStageID int `json:"seasonStageId"`
+			Conference    struct {
+				East []struct {
+					TeamID                 string `json:"teamId"`
+					TeamSitesOnly          struct {
+						TeamNickname       string `json:"teamNickname"`
+					} `json:"teamSitesOnly"`
+				} `json:"east"`
+				West []struct {
+					TeamID                 string `json:"teamId"`
+					TeamSitesOnly          struct {
+						TeamNickname       string `json:"teamNickname"`
+					} `json:"teamSitesOnly"`
+				} `json:"west"`
+			} `json:"conference"`
+		} `json:"standard"`
+	} `json:"league"`
+}
+
 type AllPlayers struct {
 	League struct {
 		Standard []struct {
@@ -32,38 +55,6 @@ type AllPlayers struct {
 			LastAffiliation string `json:"lastAffiliation"`
 			Country         string `json:"country"`
 			IsallStar       bool   `json:"isallStar,omitempty"`
-		} `json:"standard"`
-	} `json:"league"`
-}
-
-
-type Standings struct {
-	League struct {
-		Standard struct {
-			SeasonYear    int `json:"seasonYear"`
-			SeasonStageID int `json:"seasonStageId"`
-			Conference    struct {
-				East []struct {
-					TeamID                 string `json:"teamId"`
-					TeamSitesOnly          struct {
-						TeamKey            string `json:"teamKey"`
-						TeamName           string `json:"teamName"`
-						TeamCode           string `json:"teamCode"`
-						TeamNickname       string `json:"teamNickname"`
-						TeamTricode        string `json:"teamTricode"`
-					} `json:"teamSitesOnly"`
-				} `json:"east"`
-				West []struct {
-					TeamID                 string `json:"teamId"`
-					TeamSitesOnly          struct {
-						TeamKey            string `json:"teamKey"`
-						TeamName           string `json:"teamName"`
-						TeamCode           string `json:"teamCode"`
-						TeamNickname       string `json:"teamNickname"`
-						TeamTricode        string `json:"teamTricode"`
-					} `json:"teamSitesOnly"`
-				} `json:"west"`
-			} `json:"conference"`
 		} `json:"standard"`
 	} `json:"league"`
 }
