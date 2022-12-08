@@ -59,7 +59,7 @@ func getPlayerData() (AllPlayers, error) {
 	return playerResp, nil
 }
 
-func (s Seed) createRoster() {
+func createRoster() {
 	//os.Remove("roster.db")
 
 	db, err := sql.Open("sqlite3", "roster.db")
