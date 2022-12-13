@@ -79,7 +79,7 @@ func createRoster(standResp StandingsResponse, playerResp AllPlayers) {
 	}
 
 	playerStmt := `
-	create table if not exists players (teamid string not null, playername string not null, playerid string not null, foreign key(teamid) references teams(teamid));
+	create table if not exists players (teamid string not null, playername string not null, playerid string not null, position string not null, foreign key(teamid) references teams(teamid));
 	`
 	_, err = db.Exec(playerStmt)
 	if err != nil {
@@ -106,12 +106,13 @@ func createRoster(standResp StandingsResponse, playerResp AllPlayers) {
 	}
 
 	for _, players := range playerResp.League.Standard {
-		stmt, _ := db.Prepare(`INSERT INTO players(teamid, playername, playerid) VALUES (?, ?, ?)`)
+		stmt, _ := db.Prepare(`INSERT INTO players(teamid, playername, playerid, position) VALUES (?, ?, ?, ?)`)
 
-		_, err := stmt.Exec(players.TeamID, players.TemporaryDisplayName, players.PersonID)
+		_, err := stmt.Exec(players.TeamID, players.TemporaryDisplayName, players.PersonID, players.Pos)
 		if err != nil {
 			log.Fatal(err)
 		}
+		fmt.Println(players.TeamID, players.TemporaryDisplayName, players.PersonID, players.Pos)
 	}
 }
 
