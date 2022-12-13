@@ -10,12 +10,9 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	//"os"
 
 	_ "github.com/mattn/go-sqlite3"
 )
-var standResp StandingsResponse
-var playerResp AllPlayers
 
 type Seed struct {
 	db *sql.DB
@@ -24,42 +21,46 @@ type Seed struct {
 func getLeagueData() (StandingsResponse, error) {
 	res, err := http.Get("http://data.nba.net/prod/v1/current/standings_conference.json")
 	if err != nil {
-		log.Fatal(err)
+		return StandingsResponse{}, fmt.Errorf("failed to get league data: %w", err)
 	}
 	defer res.Body.Close()
 
 	bs, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return StandingsResponse{}, fmt.Errorf("failed to read response body: %w", err)
 	}
-	
+
+	var standResp StandingsResponse
 	err = json.Unmarshal(bs, &standResp)
 	if err != nil {
-		log.Fatal(err)
+		return StandingsResponse{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
+
 	return standResp, nil
 }
 
 func getPlayerData() (AllPlayers, error) {
 	res, err := http.Get("https://data.nba.net/10s/prod/v1/2022/players.json")
 	if err != nil {
-		log.Fatal(err)
+		return AllPlayers{}, fmt.Errorf("failed to get player data: %w", err)
 	}
 	defer res.Body.Close()
 
 	bs, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return AllPlayers{}, fmt.Errorf("failed to read response body: %w", err)
 	}
-	
+
+	var playerResp AllPlayers
 	err = json.Unmarshal(bs, &playerResp)
 	if err != nil {
-		log.Fatal(err)
+		return AllPlayers{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
+
 	return playerResp, nil
 }
 
-func createRoster() {
+func createRoster(standResp StandingsResponse, playerResp AllPlayers) {
 	os.Remove("roster.db")
 
 	db, err := sql.Open("sqlite3", "roster.db")
@@ -86,7 +87,7 @@ func createRoster() {
 		return
 	}
 
-	for _, teams := range standResp.League.Standard.Conference.East{
+	for _, teams := range standResp.League.Standard.Conference.East {
 		stmt, _ := db.Prepare(`INSERT INTO teams(teamid, teamname) VALUES (?, ?)`)
 
 		_, err := stmt.Exec(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
@@ -95,7 +96,7 @@ func createRoster() {
 		}
 	}
 
-	for _, teams := range standResp.League.Standard.Conference.West{
+	for _, teams := range standResp.League.Standard.Conference.West {
 		stmt, _ := db.Prepare(`INSERT INTO teams(teamid, teamname) VALUES (?, ?)`)
 
 		_, err := stmt.Exec(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
@@ -104,7 +105,7 @@ func createRoster() {
 		}
 	}
 
-	for _, players := range playerResp.League.Standard{
+	for _, players := range playerResp.League.Standard {
 		stmt, _ := db.Prepare(`INSERT INTO players(teamid, playername, playerid) VALUES (?, ?, ?)`)
 
 		_, err := stmt.Exec(players.TeamID, players.TemporaryDisplayName, players.PersonID)
@@ -169,27 +170,86 @@ func handleArgs() {
 	}
 }
 
-
+// Example commands:
+//
+//	go run . -refreshdb true
+//	go run . -c "SELECT * FROM players;"
 func main() {
-	getLeagueData()
-	getPlayerData()
-	createRoster()
-	handleArgs()
-	
-	
+	var (
+		refreshdb bool
+		sqlCmd    string
+	)
 
-	/*
-	for _, teams := range standResp.League.Standard.Conference.East{
-		fmt.Println(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
+	// Use flag package to capture the CLI values and put them in seed and sqlCmd.
+	flag.BoolVar(&refreshdb, "refreshdb", false, "Refresh Database")
+	flag.StringVar(&sqlCmd, "c", "", "Database Query - Team")
+	flag.Parse()
+
+	if refreshdb {
+		// debugging
+		//log.Fatal("refreshing db")
+
+		standResp, err := getLeagueData()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		playerResp, err := getPlayerData()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		createRoster(standResp, playerResp)
+		log.Println("Roster Refreshed")
 	}
-	for _, teams := range standResp.League.Standard.Conference.West{
-		fmt.Println(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
-	}
-	for _, players := range playerResp.League.Standard{
-		if players.IsActive{
-		fmt.Println(players.TeamID,players.TemporaryDisplayName, players.PersonID)
+
+	if sqlCmd != "" {
+		playerResp, err := getPlayerData()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		standResp, err := getLeagueData()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		createRoster(standResp, playerResp)
+		// debugging
+		//log.Fatalf("sql CMD: %s", sqlCmd)
+
+		// (The below can probably be improved. Errors can have more detail added, and I'm not sure if you want to just
+		// print the row columns like I'm doing here. You also have to consider that users could pass malicious commands
+		// to do things like delete all your data or insert/update garbage data.)
+
+		teamQuery := "SELECT * FROM players;"
+
+		db, err := sql.Open("sqlite3", "roster.db")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		rows, err := db.Query(teamQuery)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			for _, players := range playerResp.League.Standard {
+				err = rows.Scan(&players.TeamID, &players.TemporaryDisplayName, &players.PersonID)
+				if err != nil {
+					log.Fatal(err)
+				}
+				if players.TeamID == sqlCmd {
+					fmt.Println(players.TeamID, players.TemporaryDisplayName, players.PersonID)
+				}
+			}
 		}
 	}
-	*/
-
+	standResp, _ := getLeagueData()
+	playerResp, _ := getPlayerData()
+	createRoster(standResp, playerResp)
+	handleArgs()
 }
