@@ -23,10 +23,8 @@ type StandingsResponse struct {
 	} `json:"league"`
 }
 
-type AllPlayers struct {
-	League struct {
-		Standard []struct {
-			FirstName            string `json:"firstName"`
+type Player struct {
+	FirstName            string `json:"firstName"`
 			LastName             string `json:"lastName"`
 			TemporaryDisplayName string `json:"temporaryDisplayName,omitempty"`
 			PersonID             string `json:"personId"`
@@ -55,6 +53,9 @@ type AllPlayers struct {
 			LastAffiliation string `json:"lastAffiliation"`
 			Country         string `json:"country"`
 			IsallStar       bool   `json:"isallStar,omitempty"`
-		} `json:"standard"`
+}
+type AllPlayers struct {
+	League struct {
+		Standard []Player `json:"standard"`
 	} `json:"league"`
 }
