@@ -61,11 +61,16 @@ func getPlayerData() (AllPlayers, error) {
 }
 
 func createRoster(standResp StandingsResponse, playerResp AllPlayers) {
-	os.Remove("roster.db")
+	err := os.Remove("roster.db")
+	if err != nil {
+		fmt.Errorf("failed to remove roster: %w", err)
+		return
+	}
 
 	db, err := sql.Open("sqlite3", "roster.db")
 	if err != nil {
-		log.Fatal(err)
+		fmt.Errorf("failed to open roster: %w", err)
+		return
 	}
 	defer db.Close()
 
@@ -74,7 +79,7 @@ func createRoster(standResp StandingsResponse, playerResp AllPlayers) {
 	`
 	_, err = db.Exec(sqlStmt)
 	if err != nil {
-		log.Printf("%q: %s\n", err, sqlStmt)
+		fmt.Errorf("failed to execute sqlStmt: %w", err)
 		return
 	}
 
@@ -83,36 +88,37 @@ func createRoster(standResp StandingsResponse, playerResp AllPlayers) {
 	`
 	_, err = db.Exec(playerStmt)
 	if err != nil {
-		log.Printf("%q: %s\n", err, playerStmt)
+		fmt.Errorf("failed to execute playerStmt: %w", err)
 		return
 	}
 
-	for _, teams := range standResp.League.Standard.Conference.East {
-		stmt, _ := db.Prepare(`INSERT INTO teams(teamid, teamname) VALUES (?, ?)`)
+	stmt, _ := db.Prepare(`INSERT INTO teams(teamid, teamname) VALUES (?, ?)`)
 
+	for _, teams := range standResp.League.Standard.Conference.East {
 		_, err := stmt.Exec(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Errorf("failed to seed east teams into roster: %w", err)
 		}
 	}
 
 	for _, teams := range standResp.League.Standard.Conference.West {
-		stmt, _ := db.Prepare(`INSERT INTO teams(teamid, teamname) VALUES (?, ?)`)
-
 		_, err := stmt.Exec(teams.TeamID, teams.TeamSitesOnly.TeamNickname)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Errorf("failed to seed west teams into roster: %w", err)
 		}
 	}
 
-	for _, players := range playerResp.League.Standard {
-		stmt, _ := db.Prepare(`INSERT INTO players(teamid, playername, playerid, position) VALUES (?, ?, ?, ?)`)
+	stmt, err = db.Prepare(`INSERT INTO players(teamid, playername, playerid, position) VALUES (?, ?, ?, ?)`)
+	if err != nil {
+		fmt.Errorf("failed to prepare player roster: %w", err)
+	}
 
+	for _, players := range playerResp.League.Standard {
 		_, err := stmt.Exec(players.TeamID, players.TemporaryDisplayName, players.PersonID, players.Pos)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Errorf("failed to seed players into roster: %w", err)
 		}
-		fmt.Println(players.TeamID, players.TemporaryDisplayName, players.PersonID, players.Pos)
+		//fmt.Println(players.TeamID, players.TemporaryDisplayName, players.PersonID, players.Pos)
 	}
 }
 
@@ -190,32 +196,15 @@ func main() {
 		// debugging
 		//log.Fatal("refreshing db")
 
-		standResp, err := getLeagueData()
+		err := os.Remove("roster.db")
 		if err != nil {
-			log.Fatal(err)
+			fmt.Errorf("failed to remove roster: %w", err)
 		}
-
-		playerResp, err := getPlayerData()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		createRoster(standResp, playerResp)
+		rosterSetup()
 		log.Println("Roster Refreshed")
 	}
 
 	if sqlCmd != "" {
-		playerResp, err := getPlayerData()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		standResp, err := getLeagueData()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		createRoster(standResp, playerResp)
 		// debugging
 		//log.Fatalf("sql CMD: %s", sqlCmd)
 
@@ -223,34 +212,55 @@ func main() {
 		// print the row columns like I'm doing here. You also have to consider that users could pass malicious commands
 		// to do things like delete all your data or insert/update garbage data.)
 
-		teamQuery := "SELECT * FROM players;"
+		teamQuery := "SELECT * FROM players WHERE teamid =" + sqlCmd + ";"
 
 		db, err := sql.Open("sqlite3", "roster.db")
 		if err != nil {
-			log.Fatal(err)
+			fmt.Errorf("failed to open roster: %w", err)
 		}
 		defer db.Close()
 
+		rosterSetup()
 		rows, err := db.Query(teamQuery)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Errorf("failed to setup roster: %w", err)
 		}
 		defer rows.Close()
 
-		for rows.Next() {
-			for _, players := range playerResp.League.Standard {
-				err = rows.Scan(&players.TeamID, &players.TemporaryDisplayName, &players.PersonID)
+		_, playerResp := rosterSetup()
+		for _, players := range playerResp.League.Standard {
+			for rows.Next() {
+				err = rows.Scan(&players.TeamID, &players.TemporaryDisplayName, &players.PersonID, &players.Pos)
 				if err != nil {
-					log.Fatal(err)
-				}
-				if players.TeamID == sqlCmd {
-					fmt.Println(players.TeamID, players.TemporaryDisplayName, players.PersonID)
+					fmt.Errorf("failed to scan/query roster: %w", err)
 				}
 			}
+			fmt.Println(players.TeamID, players.TemporaryDisplayName, players.PersonID, players.Pos)
+		}
+		err = rows.Err()
+		if err != nil {
+			fmt.Errorf("failed to scan/query roster: %w", err)
 		}
 	}
-	standResp, _ := getLeagueData()
-	playerResp, _ := getPlayerData()
-	createRoster(standResp, playerResp)
 	handleArgs()
+}
+
+func rosterSetup() (StandingsResponse, AllPlayers) {
+	err := os.Remove("roster.db")
+	if err != nil {
+		fmt.Errorf("failed to remove roster: %w", err)
+	}
+
+	standResp, err := getLeagueData()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	playerResp, err := getPlayerData()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	createRoster(standResp, playerResp)
+	return standResp, playerResp
 }
